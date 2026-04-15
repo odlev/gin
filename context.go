@@ -249,9 +249,20 @@ func (c *Context) AbortWithError(code int, err error) *Error {
 // A middleware can be used to collect all the errors and push them to a database together,
 // print a log, or append it in the HTTP response.
 // Error will panic if err is nil.
+// If err is a joined error (created by errors.Join), it is unwrapped and each
+// individual error is added as a separate entry. The last *Error added is returned.
 func (c *Context) Error(err error) *Error {
 	if err == nil {
 		panic("err is nil")
+	}
+
+	// Unwrap joined errors so each one becomes a separate entry.
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		var last *Error
+		for _, e := range joined.Unwrap() {
+			last = c.Error(e)
+		}
+		return last
 	}
 
 	var parsedError *Error
